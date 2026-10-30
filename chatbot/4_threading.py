@@ -191,7 +191,7 @@ add_thread(st.session_state['thread_id'])
 # -------------------
 # Sidebar UI
 # -------------------
-st.sidebar.title("LangGraph Chatbot")
+st.sidebar.title("Welcome Back")
 
 if st.sidebar.button("New Chat"):
     reset_chat()
@@ -246,7 +246,7 @@ if search_query.strip():
                 filtered_entries.append((tid, label))
 
     if not filtered_entries:
-        st.sidebar.caption("Koi conversation match nahi hui.")
+        st.sidebar.caption("Not Found")
 else:
     filtered_entries = _thread_entries
 
@@ -268,7 +268,7 @@ with st.sidebar.expander("🧠 What I remember about you"):
     memories = get_all_user_memories(DEFAULT_USER_ID)
 
     if not memories:
-        st.caption("Abhi koi memory saved nahi hai. Jaise hi tum apna naam, preference, ya koi durable fact share karogi, yahan dikhega.")
+        st.caption("No memory found")
     else:
         for mem in memories:
             col1, col2 = st.columns([5, 1])
@@ -297,7 +297,7 @@ st.sidebar.markdown("---")
 st.sidebar.header("📤 Export Chat")
 
 if not st.session_state["message_history"]:
-    st.sidebar.caption("Export karne ke liye pehle koi conversation shuru karo.")
+    st.sidebar.caption("No chats found to export")
 else:
     export_format = st.sidebar.selectbox(
         "Format", ["TXT", "Markdown", "PDF"], key="export_format"
@@ -334,7 +334,8 @@ else:
 # -------------------
 # Main Chat UI
 # -------------------
-st.title("🤖 AI Research Bot")
+st.title("🤖 Agentic AI Chatbot")
+st.caption("An intelligent AI assistant powered by agents, memory, and RAG.")
 
 for message in st.session_state["message_history"]:
     with st.chat_message(message["role"]):
@@ -378,8 +379,14 @@ if st.session_state["message_history"] and st.session_state["message_history"][-
 # (classifier, summarizer, memory extractor) hamesha yahan block hone chahiye.
 # Yeh "deny by node-name + tag" dono checks combine karta hai taake future mein
 # koi naya internal node/helper add ho to accidental leak na ho.
+#
+# NOTE: "guardrail_classifier" is included here because guardrails.py's
+# check_guardrails() calls llm_classifier.invoke(..., config={"tags": ["guardrail_classifier"]})
+# from *inside* the routing node. Since that call happens inside the (visible)
+# "routing" node, only the tag-filter below stops its raw SAFE/CONFIDENTIAL/
+# PROMPT_LEAK/HARMFUL/INJECTION classification token from leaking into the chat.
 HIDDEN_NODES = {"tools", "remember", "compress"}
-HIDDEN_TAGS = {"intent_classifier", "summarizer", "memory_extractor"}
+HIDDEN_TAGS = {"intent_classifier", "summarizer", "memory_extractor", "guardrail_classifier"}
 
 user_input = st.chat_input("Type here...")
 
@@ -470,6 +477,10 @@ if user_input:
         #  2) Semantic-cache-hit wale case mein koi model call hi nahi hoti,
         #     isliye us case mein streamed_text khaali reh jata - persisted
         #     state se hi actual cached answer milta hai.
+        #  3) Guardrail short-circuit (confidential/off-topic/harmful/etc) mein
+        #     bhi koi llm.invoke() call nahi hoti - AIMessage seedha routing()
+        #     se return hoti hai - is case mein bhi streamed_text khaali rehta
+        #     hai aur persisted state hi ka canned response dikhta hai.
         graph_config = {
             "configurable": {
                 "thread_id": st.session_state['thread_id'],

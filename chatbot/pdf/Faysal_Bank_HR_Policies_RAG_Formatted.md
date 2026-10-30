@@ -1,295 +1,308 @@
-# Faysal Bank Limited
-
 # Employee / HR Policies (Reference Document)
 
 > **Disclaimer:** This is a sample/mock HR policy document for testing a
 > RAG chatbot.
 
-------------------------------------------------------------------------
+---
 
-# 1. Recruitment & Selection Policy
+## 1. Recruitment & Selection Policy
 
-## Hiring Process
+### Hiring Process
 
 Recruitment follows a merit-based selection process.
 
-The process includes: - Job Posting - Resume Screening - Structured
-Interviews - Reference Checks
+The process includes:
+- Job Posting
+- Resume Screening
+- Structured Interviews
+- Reference Checks
 
-## Internal Hiring
+### Internal Hiring
 
-Eligible internal employees are given preference through the Internal
-Job Posting (IJP) process.
-
-## Eligibility
-
-Candidates must satisfy: - Required qualifications - Relevant
-experience - Role-specific eligibility criteria
-
-## Pre-Employment Verification
-
-Employment offers are subject to: - Background verification -
-Educational verification - CIB/eCIB clearance (where applicable)
-
-## Probation
-
--   3 to 6 months
-
-------------------------------------------------------------------------
-
-# 2. Leave Policy
-
-## Annual Leave
-
--   24 working days per year
--   Accrues monthly
--   Up to 10 days may be carried forward
--   Remaining leave lapses unless approved
-
-## Casual Leave
-
--   10 days
--   Cannot be carried forward
-
-## Sick Leave
-
--   12 days
--   Medical certificate required if exceeding 2 consecutive days
-
-## Maternity Leave
-
--   Up to 12 weeks (Paid)
-
-## Paternity Leave
-
--   5 working days
-
-## Bereavement Leave
-
--   3 working days
-
-## Hajj Leave
-
--   Once during service
--   Subject to policy
-
-------------------------------------------------------------------------
-
-# 3. Employee Loan & Financing Policy
-
-## Personal Loan
+Eligible internal employees are given preference through the Internal Job Posting (IJP) process.
 
 ### Eligibility
 
--   Up to 5× Gross Monthly Salary
+Candidates must satisfy:
+- Required qualifications
+- Relevant experience
+- Role-specific eligibility criteria
 
-### Repayment
+### Pre-Employment Verification
 
--   Up to 36 months
+Employment offers are subject to:
+- Background verification
+- Educational verification
+- CIB/eCIB clearance (where applicable)
 
-## House Building Finance
+### Probation
 
-### Eligibility
+- 3 to 6 months
 
--   Employees with a minimum of 3 years of service
+---
 
-### Repayment
+## 2. Leave Policy
 
--   Up to 20 years
+### Annual Leave
 
-## Car Finance
+- 24 working days per year
+- Accrues monthly
+- Up to 10 days may be carried forward
+- Remaining leave lapses unless approved
 
-### Eligibility
+### Casual Leave
 
--   Based on employee grade
+- 10 days
+- Cannot be carried forward
 
-### Repayment
+### Sick Leave
 
--   Up to 5 years
+- 12 days
+- Medical certificate required if exceeding 2 consecutive days
 
-## Salary Advance
+### Maternity Leave
 
-### Eligibility
+- Up to 12 weeks (Paid)
 
--   Up to one month's net salary
+### Paternity Leave
 
-## Important Note
+- 5 working days
 
-Outstanding staff financing may become immediately payable upon
-resignation or termination, subject to applicable agreements.
+### Bereavement Leave
 
-------------------------------------------------------------------------
+- 3 working days
 
-# 4. Attendance & Working Hours
+### Hajj Leave
 
-## Office Timings
+- Once during service
+- Subject to policy
 
--   Monday to Friday
--   9:00 AM -- 5:30 PM
--   Branch timings may vary
+---
 
-## Attendance
+## 3. Employee Loan & Financing Policy
 
--   Biometric attendance required
--   Approved attendance system
+### Personal Loan
 
-## Discipline
+**Eligibility**
+- Up to 5× Gross Monthly Salary
 
--   More than 3 unauthorized late arrivals or absences in a month may
-    result in disciplinary action.
+**Repayment**
+- Up to 36 months
 
-## Remote Work
+### House Building Finance
 
-Requires approval from: - Line Manager - HR
+**Eligibility**
+- Employees with a minimum of 3 years of service
 
-------------------------------------------------------------------------
+**Repayment**
+- Up to 20 years
 
-# 5. Compensation & Benefits
+### Car Finance
 
-## Compensation
+**Eligibility**
+- Based on employee grade
 
--   Monthly Salary
--   Grade-based Allowances
--   Performance Bonus
+**Repayment**
+- Up to 5 years
 
-## Benefits
+### Salary Advance
 
--   Group Life Insurance
--   Medical Insurance
--   Provident Fund
--   Gratuity / Pension
+**Eligibility**
+- Up to one month's net salary
 
-## Performance Rewards
+### Important Note
 
--   Based on Performance Rating
--   Bank Profitability
+Outstanding staff financing may become immediately payable upon resignation or termination, subject to applicable agreements.
 
-------------------------------------------------------------------------
+---
 
-# 6. Performance Management
+## 4. Attendance & Working Hours
 
--   Goal / KPI Setting
--   Mid-Year Review
--   Year-End Review
+### Office Timings
 
-Performance determines: - Salary Increment - Promotion - Bonus
-Eligibility
+- Monday to Friday
+- 9:00 AM – 5:30 PM
+- Branch timings may vary
 
-Employees with performance issues may be placed on a Performance
-Improvement Plan (PIP).
+### Attendance
 
-------------------------------------------------------------------------
+- Biometric attendance required
+- Approved attendance system
 
-# 7. Code of Conduct & Disciplinary Policy
+### Discipline
 
-Employees must follow: - Integrity - Confidentiality - Conflict of
-Interest - Anti-Bribery - Fair Treatment
+- More than 3 unauthorized late arrivals or absences in a month may result in disciplinary action.
 
-## Misconduct Categories
+### Remote Work
 
--   Minor
--   Major
--   Gross Misconduct
+Requires approval from:
+- Line Manager
+- HR
 
-## Possible Actions
+---
 
--   Verbal Warning
--   Written Warning
--   Suspension
--   Termination
+## 5. Compensation & Benefits
 
-## Zero Tolerance
+### Compensation
 
--   Fraud
--   Harassment
--   Customer Data Breach
+- Monthly Salary
+- Grade-based Allowances
+- Performance Bonus
 
-------------------------------------------------------------------------
+### Benefits
 
-# 8. Anti-Harassment & Equal Opportunity
+- Group Life Insurance
+- Medical Insurance
+- Provident Fund
+- Gratuity / Pension
 
-## Workplace Protection
+### Performance Rewards
 
--   Zero tolerance for harassment
--   Confidential investigations
+- Based on Performance Rating
+- Bank Profitability
 
-## Complaint Resolution
+---
 
--   Target: 30 days
+## 6. Performance Management
 
-## Equal Opportunity
+- Goal / KPI Setting
+- Mid-Year Review
+- Year-End Review
 
-No discrimination based on: - Gender - Religion - Ethnicity -
-Disability - Age
+Performance determines:
+- Salary Increment
+- Promotion
+- Bonus Eligibility
 
-------------------------------------------------------------------------
+Employees with performance issues may be placed on a Performance Improvement Plan (PIP).
 
-# 9. Separation & Exit Policy
+---
 
-## Notice Period
+## 7. Code of Conduct & Disciplinary Policy
 
--   30--90 days
+Employees must follow:
+- Integrity
+- Confidentiality
+- Conflict of Interest
+- Anti-Bribery
+- Fair Treatment
 
-## Exit Clearance
+### Misconduct Categories
 
--   HR
--   IT
--   Finance
--   Administration
+- Minor
+- Major
+- Gross Misconduct
 
-## Final Settlement
+### Possible Actions
 
--   Within 30--45 days
+- Verbal Warning
+- Written Warning
+- Suspension
+- Termination
 
-## Retirement
+### Zero Tolerance
 
--   Standard retirement age: 60 years
+- Fraud
+- Harassment
+- Customer Data Breach
 
-------------------------------------------------------------------------
+---
 
-# 10. Training & Development
+## 8. Anti-Harassment & Equal Opportunity
 
-Mandatory training includes: - Employee Induction - AML/KYC -
-Compliance - Information Security - Customer Service
+### Workplace Protection
 
-External certifications may require a 1--2 year training bond.
+- Zero tolerance for harassment
+- Confidential investigations
 
-------------------------------------------------------------------------
+### Complaint Resolution
 
-# 11. Grievance & Whistleblower Policy
+- Target: 30 days
 
-Employees may contact: - Line Manager - HR Business Partner - HR
-Helpdesk
+### Equal Opportunity
 
-## Timelines
+No discrimination based on:
+- Gender
+- Religion
+- Ethnicity
+- Disability
+- Age
 
--   Acknowledgement: Within 3 working days
--   Resolution: Within 15 working days
+---
 
-## Whistleblower Protection
+## 9. Separation & Exit Policy
 
-Employees reporting misconduct in good faith are protected from
-retaliation.
+### Notice Period
 
-------------------------------------------------------------------------
+- 30–90 days
 
-# 12. Data Privacy & Employee Records
+### Exit Clearance
 
-Employee records include: - CNIC - Salary - Medical Records -
-Performance Records
+- HR
+- IT
+- Finance
+- Administration
 
-## Access
+### Final Settlement
+
+- Within 30–45 days
+
+### Retirement
+
+- Standard retirement age: 60 years
+
+---
+
+## 10. Training & Development
+
+Mandatory training includes:
+- Employee Induction
+- AML/KYC
+- Compliance
+- Information Security
+- Customer Service
+
+External certifications may require a 1–2 year training bond.
+
+---
+
+## 11. Grievance & Whistleblower Policy
+
+Employees may contact:
+- Line Manager
+- HR Business Partner
+- HR Helpdesk
+
+### Timelines
+
+- Acknowledgement: Within 3 working days
+- Resolution: Within 15 working days
+
+### Whistleblower Protection
+
+Employees reporting misconduct in good faith are protected from retaliation.
+
+---
+
+## 12. Data Privacy & Employee Records
+
+Employee records include:
+- CNIC
+- Salary
+- Medical Records
+- Performance Records
+
+### Access
 
 Only authorized personnel may access employee records.
 
 Employees may request access to their own HR records.
 
-## Data Sharing
+### Data Sharing
 
--   When required by law
--   With employee consent
+- When required by law
+- With employee consent
 
-## Data Retention
+### Data Retention
 
-Records are maintained according to regulatory and internal retention
-policies.
+Records are maintained according to regulatory and internal retention policies.

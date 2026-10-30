@@ -1,6 +1,7 @@
-#!/Users/owaisyameen/Desktop/langgraph/chatbot/venv/bin/python3.12
+#!/Users/owaisyameen/work/langgraph/chatbot/venv/bin/python3.14
 import sys
 from pip._internal.cli.main import main
 if __name__ == '__main__':
-    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    if sys.argv[0].endswith('.exe'):
+        sys.argv[0] = sys.argv[0][:-4]
     sys.exit(main())
