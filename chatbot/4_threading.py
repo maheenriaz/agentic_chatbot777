@@ -1,517 +1,492 @@
+import base64
 import logging
 import streamlit as st
 from langgraph_database_backend import (
     workflow, retrive_unique_thread, thread_has_document, thread_document_metadata,
-    save_thread_metadata, remove_thread_document,
-    clear_thread_checkpoint,
+    save_thread_metadata, clear_thread_checkpoint,
     DEFAULT_USER_ID, get_all_user_memories, delete_user_memory,
-    clear_all_user_memories, remember_fact_explicitly,
-    routing, store as backend_store,   # regenerate feature ke liye
+    routing, store as backend_store,
+    get_form_path, split_download_marker, FORMS,
 )
 from langchain_core.messages import HumanMessage, AIMessage, RemoveMessage
 import uuid
-import re   # file ke top pe agar already nahi hai to add karo
-import io
+import re
 
-# -------------------
-# Confidence Score parsing
-# -------------------
-# Backend RAG answers ke end mein "[[CONFIDENCE::HIGH/MEDIUM/LOW]]" jaisa hidden
-# marker bhejta hai (FAISS similarity score se derive hota hai). Frontend is
-# marker ko text se hata kar ek colored badge dikhata hai.
-CONFIDENCE_MARKER_PATTERN = re.compile(r'\n*\[\[CONFIDENCE::(HIGH|MEDIUM|LOW)\]\]\s*$')
+st.set_page_config(page_title="PeopleDesk AI", page_icon="🏦", layout="wide")
 
-CONFIDENCE_BADGES = {
-    "HIGH": "🟢 **High**",
-    "MEDIUM": "🟡 **Medium**",
-    "LOW": "🔴 **Low**",
+# =====================================================================
+# DESIGN TOKENS + GLOBAL CSS
+# =====================================================================
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+:root{
+  --navy:#0B1F4B; --royal:#1D4ED8; --royal-soft:#EEF3FF; --ink:#1B2437; --muted:#667085;
+  --line:#E3E8F0; --surface:#FFFFFF; --canvas:#F5F7FA; --radius:14px;
+  --shadow:0 1px 2px rgba(11,31,75,.06),0 4px 14px rgba(11,31,75,.05);
+}
+html,body,[class*="css"],.stApp{font-family:'IBM Plex Sans',system-ui,sans-serif;color:var(--ink);}
+.stApp{background:var(--canvas);}
+#MainMenu,footer,header[data-testid="stHeader"]{visibility:hidden;height:0;}
+.block-container{max-width:860px;padding-top:1.5rem;padding-bottom:7rem;}
+
+/* ---------- sidebar ---------- */
+section[data-testid="stSidebar"]{background:var(--surface);border-right:1px solid var(--line);}
+section[data-testid="stSidebar"] .stButton>button{
+  width:100%;justify-content:flex-start;text-align:left;border:none;background:transparent;
+  color:var(--ink);border-radius:10px;padding:.5rem .75rem;font-weight:400;transition:background .15s;}
+section[data-testid="stSidebar"] .stButton>button:hover{background:var(--canvas);}
+section[data-testid="stSidebar"] .stButton>button[kind="primary"]{background:var(--royal-soft);color:var(--royal);font-weight:500;}
+.brand{display:flex;align-items:center;gap:.7rem;margin-bottom:.25rem;}
+.brand-mark{width:36px;height:36px;border-radius:10px;background:var(--navy);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;}
+.brand-name{font-weight:600;font-size:1.05rem;color:var(--navy);line-height:1.1;}
+.brand-sub{font-size:.78rem;color:var(--muted);}
+.profile{display:flex;align-items:center;gap:.7rem;padding:.7rem;border:1px solid var(--line);border-radius:12px;margin-top:1rem;}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--royal-soft);color:var(--royal);
+  display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;}
+.profile b{font-size:.88rem;display:block;} .profile span{font-size:.75rem;color:var(--muted);}
+
+/* ---------- header ---------- */
+.status{display:inline-flex;align-items:center;gap:.45rem;font-size:.8rem;color:var(--muted);
+  background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:.2rem .7rem;}
+.status i{width:7px;height:7px;border-radius:50%;background:#16A34A;display:inline-block;}
+.hero h1{font-size:2.1rem;font-weight:600;color:var(--navy);letter-spacing:-.02em;margin:.9rem 0 .4rem;}
+.hero p{color:var(--muted);font-size:1rem;max-width:560px;margin:0;}
+.greet{margin:1.8rem 0 .2rem;font-size:1.15rem;font-weight:500;color:var(--navy);}
+.greet-sub{color:var(--muted);font-size:.92rem;margin-bottom:1rem;}
+
+/* ---------- suggestion cards (Streamlit buttons in main area) ---------- */
+.main .stButton>button{
+  border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:var(--radius);
+  box-shadow:var(--shadow);text-align:left;padding:.9rem 1rem;height:100%;min-height:92px;
+  white-space:normal;justify-content:flex-start;transition:border-color .15s,transform .15s;}
+.main .stButton>button:hover{border-color:var(--royal);color:var(--ink);transform:translateY(-1px);}
+.main .stButton>button p{font-size:.88rem;line-height:1.4;text-align:left;}
+.main .stButton>button p:first-line{font-weight:600;color:var(--navy);}
+div.quick .stButton>button{min-height:0;padding:.35rem .8rem;border-radius:999px;box-shadow:none;height:auto;}
+
+/* ---------- chat bubbles ---------- */
+div[data-testid="stChatMessage"]{background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);padding:1rem 1.1rem;margin-bottom:.8rem;box-shadow:var(--shadow);}
+div[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]){
+  flex-direction:row-reverse;background:var(--royal-soft);border-color:#D6E2FF;margin-left:15%;text-align:right;}
+div[data-testid="stChatMessage"] table{font-size:.88rem;}
+.conf{font-size:.78rem;color:var(--muted);margin-top:.3rem;}
+
+            /* Regenerate button */
+div[data-testid="stChatMessage"] button[kind="secondary"] {
+    border: 1px solid #D0D5DD;
+    background: #FFFFFF;
+    color: #344054;
+    border-radius: 20px;
+    padding: 5px 14px;
+    min-height: 34px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: none;
+    width: auto;
 }
 
+div[data-testid="stChatMessage"] button[kind="secondary"]:hover {
+    border-color: #1D4ED8;
+    color: #1D4ED8;
+    background: #EEF3FF;
+}
+            
+/* ---------- document card ---------- */
+.doc{display:flex;gap:.9rem;align-items:center;border:1px solid var(--line);border-radius:12px;
+  padding:.9rem 1rem;margin:.6rem 0 .4rem;background:var(--canvas);}
+.doc-ic{width:44px;height:52px;border-radius:8px;background:#fff;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:600;color:#B42318;}
+.doc b{display:block;color:var(--navy);} .doc small{color:var(--muted);display:block;}
+
+/* ---------- typing indicator ---------- */
+.typing{display:inline-flex;gap:5px;padding:.4rem 0;}
+.typing span{width:7px;height:7px;border-radius:50%;background:var(--royal);opacity:.35;animation:blink 1.2s infinite;}
+.typing span:nth-child(2){animation-delay:.2s;} .typing span:nth-child(3){animation-delay:.4s;}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.typing span{animation:none;opacity:.7}}
+
+/* ---------- composer ---------- */
+div[data-testid="stChatInput"]{border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:var(--shadow);}
+div[data-testid="stChatInput"]:focus-within{border-color:var(--royal);}
+@media (max-width:640px){
+  .hero h1{font-size:1.6rem;}
+  div[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]){margin-left:0;}
+}
+</style>
+""", unsafe_allow_html=True)
+
+# =====================================================================
+# CONFIDENCE / DOWNLOAD MARKERS (unchanged backend contract)
+# =====================================================================
+CONFIDENCE_MARKER_PATTERN = re.compile(r'\n*\[\[CONFIDENCE::(HIGH|MEDIUM|LOW)\]\]\s*$')
+CONFIDENCE_BADGES = {"HIGH": "🟢 High confidence", "MEDIUM": "🟡 Medium confidence", "LOW": "🔴 Low confidence"}
+
+FORM_DESCRIPTIONS = {
+    "onboarding": "Official form for new employee joining and documentation.",
+    "offboarding": "Official form for employee exit and clearance procedures.",
+}
+
+
 def split_confidence(text: str):
-    """Text ke end se confidence marker nikalta hai aur (clean_text, label) return karta hai.
-    Agar marker na mile to (original_text, None) return hota hai."""
     if not isinstance(text, str):
         return text, None
-    match = CONFIDENCE_MARKER_PATTERN.search(text)
-    if not match:
+    m = CONFIDENCE_MARKER_PATTERN.search(text)
+    if not m:
         return text, None
-    label = match.group(1)
-    clean_text = text[:match.start()].rstrip()
-    return clean_text, label
+    return text[:m.start()].rstrip(), m.group(1)
 
-def render_message_with_confidence(text: str):
-    """Chat bubble ke andar clean text + (agar mojood ho to) confidence badge render karta hai."""
-    clean_text, label = split_confidence(text)
-    st.markdown(clean_text)
-    if label:
-        st.caption(CONFIDENCE_BADGES[label])
+def render_document_card(form_type: str, key_suffix: str):
+    """Document card backed by the real PDF via get_form_path()."""
+    path = get_form_path(form_type)
+    if not path:
+        return
+    info = FORMS[form_type]
+    st.markdown(
+        f"""<div class="doc"><div class="doc-ic">PDF</div>
+        <div><b>{info['label']}</b><small>PDF Document</small>
+        <small>{FORM_DESCRIPTIONS.get(form_type, '')}</small></div></div>""",
+        unsafe_allow_html=True,
+    )
+    with open(path, "rb") as f:
+        pdf_bytes = f.read()
 
+    col_dl, _ = st.columns([3, 7])
+    with col_dl:
+        st.download_button("⬇ Download PDF", data=pdf_bytes, file_name=info["file"],
+                           mime="application/pdf", key=f"dl_{form_type}_{key_suffix}",
+                           use_container_width=True)
 
-# -------------------
-# Export Chat (TXT / Markdown / PDF)
-# -------------------
-def _clean_message_content(message: dict) -> str:
-    """Assistant messages ke confidence marker ko hata kar plain text deta hai."""
+    with st.expander("👁 View PDF"):
+        b64 = base64.b64encode(pdf_bytes).decode()
+        st.markdown(
+            f'<iframe src="data:application/pdf;base64,{b64}" '
+            f'width="100%" height="600" style="border:1px solid #E3E8F0;border-radius:10px;"></iframe>',
+            unsafe_allow_html=True,
+        )
+
+def clean_text(message: dict) -> str:
     if message["role"] == "assistant":
-        clean_text, _ = split_confidence(message["content"])
-        return clean_text
+        t, _ = split_download_marker(message["content"])
+        t, _ = split_confidence(t)
+        return t
     return message["content"]
 
+def render_assistant(text: str, key_suffix: str, is_last: bool = False):
+    """Message body + document card + source line + actions (copy / feedback / regenerate)."""
+    text, form_type = split_download_marker(text)
+    body, label = split_confidence(text)
+    st.markdown(body)
+    if form_type:
+        render_document_card(form_type, key_suffix)
+    if label:
+        st.markdown(f'<div class="conf">Source: HR Policy Document · {CONFIDENCE_BADGES[label]}</div>',
+                    unsafe_allow_html=True)
 
+    if is_last:
+        col1, _ = st.columns([2, 8])
+        with col1:
+            if st.button("↻ Regenerate", key=f"regen_{key_suffix}", type="secondary"):
+                with st.spinner("Regenerating..."):
+                    regenerate_last_response()
+                st.rerun()
+
+# =====================================================================
+# EXPORT (TXT / Markdown / PDF)
+# =====================================================================
 def build_chat_text(messages: list, fmt: str = "txt") -> str:
-    """Poori chat history ko ek plain text ya markdown string mein format karta hai."""
     lines = []
     for m in messages:
         role = "You" if m["role"] == "user" else "Assistant"
-        content = _clean_message_content(m)
-        if fmt == "markdown":
-            lines.append(f"**{role}:**\n\n{content}\n")
-        else:
-            lines.append(f"{role}: {content}\n")
+        content = clean_text(m)
+        lines.append(f"**{role}:**\n\n{content}\n" if fmt == "markdown" else f"{role}: {content}\n")
     return "\n".join(lines)
 
 
 def build_chat_pdf(messages: list) -> bytes:
-    """Poori chat history se ek simple PDF (bytes) banata hai.
-    Requires: pip install fpdf2  (agar installed nahi hai to ImportError raise hoga,
-    jo caller UI mein friendly error ke sath dikhata hai)."""
-    from fpdf import FPDF  # fpdf2 package - agar missing ho to yahan ImportError aayega
+    from fpdf import FPDF  # pip install fpdf2
 
-    def _pdf_safe(text: str) -> str:
-        # core PDF fonts sirf latin-1 support karte hain - emojis/unicode ko
-        # safely replace kar dete hain taake PDF generation crash na ho.
-        return text.encode("latin-1", errors="replace").decode("latin-1")
+    def safe(t: str) -> str:
+        return t.encode("latin-1", errors="replace").decode("latin-1")
 
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
-
     for m in messages:
         role = "You" if m["role"] == "user" else "Assistant"
-        content = _pdf_safe(_clean_message_content(m))
-
         pdf.set_font("Helvetica", style="B", size=12)
-        pdf.multi_cell(0, 8, _pdf_safe(f"{role}:"))
+        pdf.multi_cell(0, 8, safe(f"{role}:"))
         pdf.set_font("Helvetica", size=11)
-        pdf.multi_cell(0, 7, content)
+        pdf.multi_cell(0, 7, safe(clean_text(m)))
         pdf.ln(3)
-
     raw = pdf.output(dest="S")
-    # fpdf2 versions differ: kabhi bytearray/bytes deta hai, kabhi str
-    if isinstance(raw, str):
-        return raw.encode("latin-1", errors="replace")
-    return bytes(raw)
+    return raw.encode("latin-1", errors="replace") if isinstance(raw, str) else bytes(raw)
 
 
-# -------------------
-# Regenerate last assistant response
-# -------------------
+# =====================================================================
+# REGENERATE (same logic as before)
+# =====================================================================
 def regenerate_last_response():
-    """Graph ke persisted state ka last AI message replace karta hai - routing()
-    ko seedha (poore graph ko dobara chalaye bina) call karte hain, isliye
-    remember/compress node dobara trigger nahi hote (koi duplicate memory-write
-    ya extra compression side-effect nahi hota). skip_cache=True taake semantic
-    cache se wohi purana answer wapis na mil jaye."""
     tid = str(st.session_state['thread_id'])
-    graph_config = {
-        "configurable": {"thread_id": tid, "user_id": DEFAULT_USER_ID}
-    }
-
+    graph_config = {"configurable": {"thread_id": tid, "user_id": DEFAULT_USER_ID}}
     current_state = workflow.get_state(graph_config)
     messages = current_state.values.get('messages', [])
-    print("messages",messages)
     if not messages or not isinstance(messages[-1], AIMessage):
-        st.warning("Regenerate karne ke liye koi assistant response maujood nahi hai.")
+        st.warning("There is no assistant response to regenerate.")
         return
-
-    last_ai_message = messages[-1]
-    last_ai_id = getattr(last_ai_message, "id", None)
-
+    last_ai_id = getattr(messages[-1], "id", None)
     if last_ai_id is None:
-        st.warning("Ye message purane format mein hai (id missing) - regenerate nahi ho sakta.")
+        st.warning("This message was saved in an older format and can't be regenerated.")
         return
-
-    # Naya answer generate karne ke liye state banate hain jisme purana AI
-    # message shamil nahi (taake routing() ko last message = user query mile).
     state_for_regen = dict(current_state.values)
     state_for_regen['messages'] = messages[:-1]
-
     try:
         result = routing(state_for_regen, config=graph_config, store=backend_store, skip_cache=True)
     except Exception as e:
-        st.error(f"Regenerate fail hua: {e}")
+        st.error(f"Couldn't regenerate the response: {e}")
         return
-
     new_message = result["messages"][-1]
-
-    # Graph ke persisted checkpoint mein: purana AI message hatao, naya add karo -
-    # ye ek hi update mein hota hai (add_messages reducer RemoveMessage + naya
-    # message dono ko ek sath process kar leta hai).
-    workflow.update_state(
-        graph_config,
-        {"messages": [RemoveMessage(id=last_ai_id), new_message]},
-    )
-
-    # Sidebar/session ki local history bhi update karo
-    if st.session_state["message_history"] and st.session_state["message_history"][-1]["role"] == "assistant":
-        st.session_state["message_history"][-1] = {"role": "assistant", "content": new_message.content}
+    workflow.update_state(graph_config, {"messages": [RemoveMessage(id=last_ai_id), new_message]})
+    hist = st.session_state["message_history"]
+    if hist and hist[-1]["role"] == "assistant":
+        hist[-1] = {"role": "assistant", "content": new_message.content}
 
 
+# =====================================================================
+# THREAD HELPERS + SESSION STATE
+# =====================================================================
 def generate_thread_id():
     return uuid.uuid4()
 
-def reset_chat():
-    thread_id = generate_thread_id()
-    st.session_state['thread_id'] = thread_id
-    add_thread(thread_id)
-    st.session_state['message_history'] = []
 
 def add_thread(thread_id):
     if thread_id not in st.session_state['chat_threads']:
         st.session_state['chat_threads'].append(thread_id)
 
+
+def reset_chat():
+    tid = generate_thread_id()
+    st.session_state['thread_id'] = tid
+    add_thread(tid)
+    st.session_state['message_history'] = []
+    save_thread_metadata(str(tid), {"thread_name": "New Chat"})
+
+
 def load_conversations(thread_id):
     state = workflow.get_state({"configurable": {"thread_id": thread_id, "user_id": DEFAULT_USER_ID}})
     return state.values.get('messages', [])
 
-# -------------------
-# Session State Init
-# -------------------
+
+def ask(prompt: str):
+    st.session_state["pending_query"] = prompt
+
+
 if "message_history" not in st.session_state:
     st.session_state["message_history"] = []
-
 if 'thread_id' not in st.session_state:
     st.session_state['thread_id'] = generate_thread_id()
-
 if 'chat_threads' not in st.session_state:
     st.session_state['chat_threads'] = retrive_unique_thread()
-
 add_thread(st.session_state['thread_id'])
 
-# -------------------
-# Sidebar UI
-# -------------------
-st.sidebar.title("Welcome Back")
+# =====================================================================
+# SIDEBAR
+# =====================================================================
+with st.sidebar:
+    st.markdown("""<div class="brand"><div class="brand-mark">PD</div>
+        <div><div class="brand-name">PeopleDesk AI</div>
+        <div class="brand-sub">Intelligent HR Assistant</div></div></div>""", unsafe_allow_html=True)
+    st.write("")
+    if st.button("＋  New chat", key="new_chat", type="primary"):
+        reset_chat()
+        st.rerun()
 
-if st.sidebar.button("New Chat"):
-    reset_chat()
-    save_thread_metadata(str(st.session_state['thread_id']), {"thread_name": "New Chat"})
+    search_query = st.text_input("Search conversations", key="thread_search",
+                                 placeholder="Search conversations", label_visibility="collapsed")
+    search_in_messages = st.checkbox("Also search inside messages", value=False, key="thread_search_deep",
+                                     help="Slower: checks full chat content, not just titles.")
 
-st.sidebar.markdown("---")
-st.sidebar.header("My Conversations")
+    entries = []
+    for tid in st.session_state['chat_threads']:
+        meta = thread_document_metadata(str(tid))
+        label = (meta.get("thread_name") or (str(tid)[:8] + "..."))[:30]
+        if thread_has_document(str(tid)):
+            label = "📄 " + label
+        entries.append((tid, label))
 
-# -------------------
-# Conversation Search
-# -------------------
-# Default: sirf thread ke naam (title) pe filter karta hai - fast hai, koi
-# extra DB/checkpoint load nahi hoti.
-# "Also search inside messages" on karne par har thread ki poori chat load
-# kar ke content bhi check karta hai - thoda slow ho sakta hai agar bohot
-# saari threads hon, isliye opt-in checkbox hai.
-search_query = st.sidebar.text_input(
-    "🔍 Search conversations", key="thread_search", placeholder="Type to filter..."
-)
-search_in_messages = st.sidebar.checkbox(
-    "Also search inside messages", value=False, key="thread_search_deep",
-    help="Slower - checks full chat content too, not just the conversation title."
-)
-
-# Pehle har thread ka display label precompute kar lete hain (name-filter ke liye)
-_thread_entries = []
-for tid in st.session_state['chat_threads']:
-    meta = thread_document_metadata(str(tid))
-    # DB se thread_name milta hai - agar nahi mila to fallback short id
-    label = meta.get("thread_name") or (str(tid)[:8] + "...")
-    label = label[:30]
-    if thread_has_document(str(tid)):
-        label = "📄 " + label
-    _thread_entries.append((tid, label))
-
-if search_query.strip():
-    q = search_query.strip().lower()
-    filtered_entries = []
-    for tid, label in _thread_entries:
-        if q in label.lower():
-            filtered_entries.append((tid, label))
-            continue
-        if search_in_messages:
-            try:
-                msgs = load_conversations(tid)
-                content_match = any(
-                    isinstance(m.content, str) and q in m.content.lower() for m in msgs
-                )
-            except Exception:
-                content_match = False
-            if content_match:
-                filtered_entries.append((tid, label))
-
-    if not filtered_entries:
-        st.sidebar.caption("Not Found")
-else:
-    filtered_entries = _thread_entries
-
-for tid, label in filtered_entries:
-    if st.sidebar.button(label, key=str(tid)):
-        st.session_state['thread_id'] = tid
-        messages = load_conversations(tid)
-        temp_messages = []
-        for msg in messages:
-            role = 'user' if isinstance(msg, HumanMessage) else 'assistant'
-            temp_messages.append({'role': role, 'content': msg.content})
-        st.session_state['message_history'] = temp_messages
-
-# -------------------
-# Sidebar — Long-Term Memory viewer
-# -------------------
-st.sidebar.markdown("---")
-with st.sidebar.expander("🧠 What I remember about you"):
-    memories = get_all_user_memories(DEFAULT_USER_ID)
-
-    if not memories:
-        st.caption("No memory found")
+    if search_query.strip():
+        q = search_query.strip().lower()
+        shown = []
+        for tid, label in entries:
+            if q in label.lower():
+                shown.append((tid, label))
+            elif search_in_messages:
+                try:
+                    if any(isinstance(m.content, str) and q in m.content.lower() for m in load_conversations(tid)):
+                        shown.append((tid, label))
+                except Exception:
+                    pass
+        if not shown:
+            st.caption("No conversations match your search.")
     else:
+        shown = entries
+
+    st.caption("Recent conversations")
+    for tid, label in shown:
+        active = str(tid) == str(st.session_state['thread_id'])
+        if st.button(label, key=f"thr_{tid}", type="primary" if active else "secondary"):
+            st.session_state['thread_id'] = tid
+            st.session_state['message_history'] = [
+                {'role': 'user' if isinstance(m, HumanMessage) else 'assistant', 'content': m.content}
+                for m in load_conversations(tid)
+            ]
+            st.rerun()
+
+    if st.session_state["message_history"]:
+        if st.button("🗑  Clear this conversation", key="clear_conv"):
+            clear_thread_checkpoint(str(st.session_state['thread_id']))
+            st.session_state["message_history"] = []
+            st.rerun()
+
+    with st.expander("⚙️  Settings"):
+        st.caption("What I remember about you")
+        memories = get_all_user_memories(DEFAULT_USER_ID)
+        if not memories:
+            st.caption("No saved memories yet.")
         for mem in memories:
-            col1, col2 = st.columns([5, 1])
-            with col1:
-                st.markdown(f"- {mem['text']}")
-            with col2:
-                if st.button("🗑️", key=f"del_{mem['key']}"):
-                    delete_user_memory(mem['key'], DEFAULT_USER_ID)
-                    st.rerun()
+            c1, c2 = st.columns([5, 1])
+            c1.markdown(f"- {mem['text']}")
+            if c2.button("✕", key=f"del_{mem['key']}"):
+                delete_user_memory(mem['key'], DEFAULT_USER_ID)
+                st.rerun()
 
-    st.markdown("---")
-    # manual_memory = st.text_input("Manually remember something:", key="manual_memory_input")
-    # if st.button("Save memory", key="save_manual_memory"):
-    #     if manual_memory.strip():
-    #         remember_fact_explicitly(manual_memory.strip(), DEFAULT_USER_ID)
-    #         st.rerun()
+        st.markdown("---")
+        st.caption("Export this chat")
+        if not st.session_state["message_history"]:
+            st.caption("Nothing to export yet.")
+        else:
+            fmt = st.selectbox("Format", ["TXT", "Markdown", "PDF"], key="export_format")
+            hist = st.session_state["message_history"]
+            if fmt == "TXT":
+                st.download_button("Download chat", build_chat_text(hist), "chat_export.txt", "text/plain")
+            elif fmt == "Markdown":
+                st.download_button("Download chat", build_chat_text(hist, "markdown"), "chat_export.md", "text/markdown")
+            else:
+                try:
+                    st.download_button("Download chat", build_chat_pdf(hist), "chat_export.pdf", "application/pdf")
+                except ImportError:
+                    st.error("PDF export needs fpdf2. Run: pip install fpdf2")
+                except Exception as e:
+                    st.error(f"PDF export failed: {e}")
 
-    # if memories and st.button("Clear all memories", key="clear_all_memories"):
-    #     clear_all_user_memories(DEFAULT_USER_ID)
-    #     st.rerun()
+    st.markdown("""<div class="profile"><div class="avatar">EM</div>
+        <div><b>Employee</b><span>Signed in</span></div></div>""", unsafe_allow_html=True)
 
-# -------------------
-# Sidebar — Export Chat
-# -------------------
-st.sidebar.markdown("---")
-st.sidebar.header("📤 Export Chat")
+# =====================================================================
+# MAIN AREA
+# =====================================================================
+# chat_input renders fixed at the bottom; reading it first lets the welcome
+# screen disappear on the same run in which a message is submitted.
+typed = st.chat_input("Ask anything about HR policies...")
+user_input = typed or st.session_state.pop("pending_query", None)
 
-if not st.session_state["message_history"]:
-    st.sidebar.caption("No chats found to export")
-else:
-    export_format = st.sidebar.selectbox(
-        "Format", ["TXT", "Markdown", "PDF"], key="export_format"
-    )
+st.markdown('<span class="status"><i></i>HR Knowledge Assistant</span>', unsafe_allow_html=True)
 
-    if export_format == "TXT":
-        st.sidebar.download_button(
-            "⬇️ Download chat",
-            data=build_chat_text(st.session_state["message_history"], fmt="txt"),
-            file_name="chat_export.txt",
-            mime="text/plain",
-        )
-    elif export_format == "Markdown":
-        st.sidebar.download_button(
-            "⬇️ Download chat",
-            data=build_chat_text(st.session_state["message_history"], fmt="markdown"),
-            file_name="chat_export.md",
-            mime="text/markdown",
-        )
-    else:  # PDF
-        try:
-            pdf_bytes = build_chat_pdf(st.session_state["message_history"])
-            st.sidebar.download_button(
-                "⬇️ Download chat",
-                data=pdf_bytes,
-                file_name="chat_export.pdf",
-                mime="application/pdf",
-            )
-        except ImportError:
-            st.sidebar.error("PDF export ke liye pehle install karo: `pip install fpdf2`")
-        except Exception as e:
-            st.sidebar.error(f"PDF export fail hua: {e}")
+SUGGESTIONS = [
+    ("📅", "Leave Management", "How many annual leaves am I entitled to?"),
+    ("💳", "Employee Financing", "What are the eligibility criteria for a personal loan?"),
+    ("🧾", "Onboarding", "I am a new employee. What documents do I need?"),
+    ("🚪", "Offboarding", "Can you provide the employee offboarding form?"),
+    ("🕘", "Attendance", "What are the official office timings?"),
+    ("📘", "HR Policies", "What is the maternity leave policy?"),
+]
+QUICK = [
+    ("Leave policies", "What are the leave policies?"),
+    ("Employee benefits", "What employee benefits are available?"),
+    ("Employee financing", "What employee financing options are available?"),
+    ("Working hours", "What are the attendance and working hours rules?"),
+    ("Onboarding documents", "What are the steps to onboard a new employee?"),
+    ("Offboarding documents", "Can you provide the employee offboarding form?"),
+    ("Code of conduct", "What does the code of conduct say?"),
+]
 
-# -------------------
-# Main Chat UI
-# -------------------
-st.title("🤖 Agentic AI Chatbot")
-st.caption("An intelligent AI assistant powered by agents, memory, and RAG.")
+if not st.session_state["message_history"] and not user_input:
+    st.markdown("""<div class="hero"><h1>Your HR, Simplified.</h1>
+        <p>Your intelligent assistant for HR policies, employee benefits, documents and workplace support.</p></div>
+        <div class="greet">Hello! How can I help you today?</div>
+        <div class="greet-sub">Ask me anything about HR policies, leave management, employee benefits,
+        onboarding, offboarding and more.</div>""", unsafe_allow_html=True)
 
-for message in st.session_state["message_history"]:
+    for row in range(0, len(SUGGESTIONS), 3):
+        cols = st.columns(3)
+        for col, (icon, title, prompt) in zip(cols, SUGGESTIONS[row:row + 3]):
+            with col:
+                st.button(f"{icon}  {title}\n\n{prompt}", key=f"sg_{title}",
+                          on_click=ask, args=(prompt,), use_container_width=True)
+
+    st.caption("Quick access")
+    st.markdown('<div class="quick">', unsafe_allow_html=True)
+    qcols = st.columns(4)
+    for i, (label, prompt) in enumerate(QUICK):
+        with qcols[i % 4]:
+            st.button(label, key=f"qk_{label}", on_click=ask, args=(prompt,), use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------- history ----------
+history = st.session_state["message_history"]
+for i, message in enumerate(history):
     with st.chat_message(message["role"]):
         if message["role"] == "assistant":
-            render_message_with_confidence(message["content"])
+            render_assistant(message["content"], key_suffix=f"hist_{i}", is_last=(i == len(history) - 1))
         else:
             st.markdown(message["content"])
 
-# -------------------
-# Regenerate last response
-# -------------------
-# Sirf tab dikhta hai jab last message assistant ki ho (yaani koi response
-# maujood hai jo dobara generate ki ja sake).
-if st.session_state["message_history"] and st.session_state["message_history"][-1]["role"] == "assistant":
-    if st.button("↻ Regenerate", key="regenerate_btn"):
-        with st.spinner("🤖 Regenerating..."):
-            regenerate_last_response()
-        st.rerun()
-
-# upload_container = st.container()
-# with upload_container:
-#     current_tid = str(st.session_state['thread_id'])
-#     uploaded_file = st.file_uploader("Attach a PDF", type=["pdf"])
-
-#     if uploaded_file is not None:
-#         # st.success(f"✅ {uploaded_file.name} uploaded")
-#         result = ingest_pdf(uploaded_file.read(), current_tid, uploaded_file.name)
-#         # if result["success"]:
-#         #     st.info(f"📄 {uploaded_file.name} ready! ({result['pages']} pages, {result['chunks']} chunks)")
-#         # else:
-#         #     st.error(f"❌ Error: {result['error']}")
-#     else:
-#         # st.warning("📄 No PDF attached (removed or not uploaded)")
-#         if thread_has_document(current_tid):
-#             remove_thread_document(current_tid)
-#             clear_thread_checkpoint(current_tid)
-#             # st.info("🗑️ Document context cleared for this thread")
-
-# Sirf yehi nodes hain jinke LLM tokens user ko chat mein dikhne chahiye -
-# koi bhi aur node (remember, tools, compress) ya internal helper call
-# (classifier, summarizer, memory extractor) hamesha yahan block hone chahiye.
-# Yeh "deny by node-name + tag" dono checks combine karta hai taake future mein
-# koi naya internal node/helper add ho to accidental leak na ho.
-#
-# NOTE: "guardrail_classifier" is included here because guardrails.py's
-# check_guardrails() calls llm_classifier.invoke(..., config={"tags": ["guardrail_classifier"]})
-# from *inside* the routing node. Since that call happens inside the (visible)
-# "routing" node, only the tag-filter below stops its raw SAFE/CONFIDENTIAL/
-# PROMPT_LEAK/HARMFUL/INJECTION classification token from leaking into the chat.
-HIDDEN_NODES = {"tools", "remember", "compress"}
-HIDDEN_TAGS = {"intent_classifier", "summarizer", "memory_extractor", "guardrail_classifier"}
-
-user_input = st.chat_input("Type here...")
-
+# ---------- new turn ----------
 if user_input:
     current_tid = str(st.session_state['thread_id'])
-
-    st.session_state["message_history"].append({"role": "user", "content": user_input})
+    history.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
-        st.text(user_input)
-
-    # if uploaded_file is not None:
-    #     if not thread_has_document(current_tid):
-    #         result = ingest_pdf(
-    #             file_bytes=uploaded_file.read(),
-    #             thread_id=current_tid,
-    #             filename=uploaded_file.name
-    #         )
-    # else:
-    #     remove_thread_document(current_tid)kk
+        st.markdown(user_input)
 
     with st.chat_message("assistant"):
         placeholder = st.empty()
-        streamed_text = ""
-
-        # -------------------
-        # Typing indicator
-        # -------------------
-        # Streaming shuru hone se pehle (jab tak backend routing + retrieval +
-        # model ka pehla token generate nahi ho jata) ek "thinking" indicator
-        # dikhate hain, taake user ko lage app hang nahi hui balki kaam ho raha hai.
-        # Jaise hi pehla real content token aata hai, ye automatically replace ho
-        # jata hai (neeche ka placeholder.markdown(streamed_text) hi isko overwrite
-        # kar deta hai).
-        placeholder.markdown("🤖 *Thinking...*")
-
-        stream = workflow.stream(
-            {"messages": [HumanMessage(content=user_input)]},
-            config={
-                # ✅ user_id zaroori hai — remember_node aur routing node isko use karte hain
-                # long-term memory ko sahi user ke namespace mein read/write karne ke liye
-                "configurable": {
-                    "thread_id": st.session_state['thread_id'],
-                    "user_id": DEFAULT_USER_ID
-                },
-                "metadata": {"thread_id": st.session_state['thread_id']},
-                "run_name": "chat_turn"
-            },
-            stream_mode="messages"
-        )
-        # print(f"[STREAMING RESPONSE] {stream}")
-        sources_cutoff = False
-
-        for chunk, metadata in stream:
-            content = getattr(chunk, "content", "")
-            if not content:
-                continue
-            if content.strip().lower() in ["tool", "document", "yes", "no"]:
-                continue
-
-            node_name = metadata.get("langgraph_node")
-            if node_name in HIDDEN_NODES:
-                continue
-
-            chunk_tags = set(metadata.get("tags", []) or [])
-            if chunk_tags & HIDDEN_TAGS:
-                continue
-
-            if sources_cutoff:
-                continue   # sources shuru hone ke baad aane wale tokens ignore karo
-
-            streamed_text += content
-
-            # ✅ "Sources:" / "References:" pattern check karo
-            match = re.search(r'\s*\**\s*(Sources?|References?|Citations?)\s*\**\s*:', streamed_text, re.IGNORECASE)
-            if match:
-                streamed_text = streamed_text[:match.start()].rstrip()
-                sources_cutoff = True
-
-            placeholder.markdown(streamed_text)
-
-        # Stream khatam - ab graph ke persisted state se ASLI final message
-        # nikalte hain (streamed_text sirf live token-preview ke liye tha).
-        # Do wajah se ye zaroori hai:
-        #  1) RAG answers ke end mein ek hidden confidence marker hota hai jo
-        #     model ke tokens ke sath stream NAHI hota (kyunki wo llm.invoke()
-        #     ke baad, post-processing mein, answer ke sath jode jate hain) -
-        #     isliye asli marker sirf persisted state ke message mein milega.
-        #  2) Semantic-cache-hit wale case mein koi model call hi nahi hoti,
-        #     isliye us case mein streamed_text khaali reh jata - persisted
-        #     state se hi actual cached answer milta hai.
-        #  3) Guardrail short-circuit (confidential/off-topic/harmful/etc) mein
-        #     bhi koi llm.invoke() call nahi hoti - AIMessage seedha routing()
-        #     se return hoti hai - is case mein bhi streamed_text khaali rehta
-        #     hai aur persisted state hi ka canned response dikhta hai.
-        graph_config = {
-            "configurable": {
-                "thread_id": st.session_state['thread_id'],
-                "user_id": DEFAULT_USER_ID
-            }
-        }
+        placeholder.markdown('<div class="typing"><span></span><span></span><span></span></div>',
+                             unsafe_allow_html=True)
+        error = None
         try:
-            final_state = workflow.get_state(graph_config)
-            final_messages = final_state.values.get('messages', [])
-            final_answer = final_messages[-1].content if final_messages else streamed_text
+            workflow.invoke(
+                {"messages": [HumanMessage(content=user_input)]},
+                config={
+                    "configurable": {"thread_id": st.session_state['thread_id'], "user_id": DEFAULT_USER_ID},
+                    "metadata": {"thread_id": st.session_state['thread_id']},
+                    "run_name": "chat_turn",
+                },
+            )
         except Exception as e:
-            logging.error(f"[FINAL STATE] failed to fetch, falling back to streamed text: {e}")
-            final_answer = streamed_text
+            logging.error(f"[INVOKE] failed: {e}")
+            error = str(e)
 
-        if not isinstance(final_answer, str) or not final_answer.strip():
-            final_answer = streamed_text
+        final_state = workflow.get_state(
+            {"configurable": {"thread_id": st.session_state['thread_id'], "user_id": DEFAULT_USER_ID}}
+        )
+        msgs = final_state.values.get('messages', [])
+        final_answer = msgs[-1].content if msgs else ""
+        if error and not isinstance(final_answer, str):
+            final_answer = ""
+        if error and not final_answer:
+            final_answer = "Something went wrong while generating the answer. Please try again."
 
         placeholder.empty()
         with placeholder.container():
-            render_message_with_confidence(final_answer)
+            render_assistant(final_answer, key_suffix=f"new_{len(history)}", is_last=True)
 
-        st.session_state["message_history"].append({
-                    "role": "assistant",
-                    "content": final_answer
-        })
+        history.append({"role": "assistant", "content": final_answer})
 
-    # Pehla user message ke baad thread ka naam DB mein save karo (persistent), phir rerun karo
-    # taake sidebar turant updated naam aur naya memory (agar koi save hua ho) dikhaye
-    if len(st.session_state["message_history"]) == 2:
+    if len(history) == 2:
         try:
             save_thread_metadata(current_tid, {"thread_name": user_input[:30]})
         except Exception as e:
             logging.error(f"[THREAD NAME] failed to save: {e}")
-        st.rerun()
+    st.rerun()

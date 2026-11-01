@@ -306,3 +306,42 @@ Employees may request access to their own HR records.
 ### Data Retention
 
 Records are maintained according to regulatory and internal retention policies.
+
+---
+
+## 13. About the Project: EmployeeDesk AI – Intelligent HR Self-Service Assistant
+
+### Overview
+
+EmployeeDesk AI is an HR self-service assistant designed specifically for banking employees.
+
+### Objective
+
+The main objective of the project is to reduce repetitive HR-related queries and to give employees centralized access to HR policies, guidelines and documentation.
+
+For example, if an employee asks about annual leave, personal loan eligibility, maternity leave, the resignation procedure or onboarding requirements, they do not need to contact the HR department manually. The chatbot retrieves the relevant information from the HR documents and provides the answer.
+
+### Technical Architecture
+
+The project implements a Retrieval-Augmented Generation (RAG) architecture:
+- HR documents are ingested and preprocessed
+- Embeddings are generated from the processed content
+- Embeddings are stored in a vector database
+- When an employee submits a query, the retriever fetches the relevant information
+- The LLM generates a response based on the retrieved context
+
+### Current Focus
+
+The current focus is on improving the chatbot's capabilities, particularly:
+- HR document retrieval
+- Downloadable forms
+- Onboarding and offboarding assistance
+- Source-based responses
+
+### Future Roadmap
+
+Planned future enhancements include:
+- Employee authentication
+- Role-based access control
+- Audit logging
+- Integration with existing HR systems
